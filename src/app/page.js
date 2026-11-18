@@ -15,7 +15,7 @@ export default function SeatFiMasterView() {
       </div>
 
       {/* TOP HALF: Professional Outside Library Kiosk */}
-      <section className="h-[46%] w-full border-b border-slate-200/90 bg-white/80 backdrop-blur-xl z-10 shadow-sm relative">
+      <section className="h-[46%] w-full border-b border-slate-200/90 bg-white/85 backdrop-blur-xl z-10 shadow-xs relative">
         <OutsideKiosk />
       </section>
 

@@ -2,8 +2,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'SEATFI: Smart Library IoT Occupancy System',
-  description: 'Developed by SEPHALI SINGH',
+  title: 'SEATFI // Smart Library IoT Occupancy & 5-Min Pre-Booking System',
+  description: 'ESP32 + IR + FSR Real-Time Library Seat Telemetry & Express Hold',
 };
 
 export default function RootLayout({ children }) {

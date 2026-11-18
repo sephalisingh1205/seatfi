@@ -12,11 +12,18 @@ import {
   Billboard,
   Text,
 } from '@react-three/drei';
-import { useSeatStore, computeNodeStatus } from '@/store/useSeatStore';
-import { Cpu, Layers } from 'lucide-react';
+import { useSeatStore, computeNodeStatus, isNoiseViolation } from '@/store/useSeatStore';
+import { Cpu, Layers, Clock } from 'lucide-react';
 
-// Pure 3D WebGL Floating Pill Badge (Replaces <Html> to prevent React 19 unmount errors)
-function FloatingBadge3D({ position = [0, 1, 0], text, subText, bgColor = '#1e293b', textColor = '#ffffff', onClick }) {
+// Pure 3D WebGL Floating Pill Badge (Zero React 19 root unmount race conditions)
+function FloatingBadge3D({
+  position = [0, 1, 0],
+  text,
+  subText,
+  bgColor = '#1e293b',
+  textColor = '#ffffff',
+  onClick,
+}) {
   return (
     <Billboard position={position} follow={true}>
       <group
@@ -27,12 +34,12 @@ function FloatingBadge3D({ position = [0, 1, 0], text, subText, bgColor = '#1e29
           }
         }}
       >
-        <RoundedBox args={[1.25, 0.28, 0.02]} radius={0.12}>
+        <RoundedBox args={[1.38, 0.3, 0.02]} radius={0.12}>
           <meshBasicMaterial color={bgColor} />
         </RoundedBox>
         <Text
-          position={[0, subText ? 0.04 : 0, 0.02]}
-          fontSize={0.095}
+          position={[0, subText ? 0.045 : 0, 0.02]}
+          fontSize={0.09}
           color={textColor}
           anchorX="center"
           anchorY="middle"
@@ -42,8 +49,8 @@ function FloatingBadge3D({ position = [0, 1, 0], text, subText, bgColor = '#1e29
         {subText && (
           <Text
             position={[0, -0.065, 0.02]}
-            fontSize={0.07}
-            color="#cbd5e1"
+            fontSize={0.068}
+            color="#e2e8f0"
             anchorX="center"
             anchorY="middle"
           >
@@ -57,10 +64,42 @@ function FloatingBadge3D({ position = [0, 1, 0], text, subText, bgColor = '#1e29
 
 // 1. MOLDED 4-LEGGED NORMAL PLASTIC CHAIR COMPONENT
 function PlasticChairNode({ seat, position, rotationY, isSelected, onSelect }) {
-  const status = computeNodeStatus(seat.irDistance, seat.pressureWeight);
+  const holoRef = useRef();
+  const soundWaveRef = useRef();
+
+  const status = computeNodeStatus(seat.irDistance, seat.pressureWeight, seat.prebookedUntil);
+  const loud = isNoiseViolation(seat);
+
   const statusColor =
-    status === 'Occupied' ? '#e11d48' : status === 'Bag Hogging' ? '#d97706' : '#059669';
+    status === 'Occupied'
+      ? '#e11d48'
+      : status === 'Bag Hogging'
+      ? '#d97706'
+      : status === 'Pre-booked'
+      ? '#7c3aed'
+      : '#059669';
+
   const shellColor = isSelected ? '#1d4ed8' : '#3b82f6';
+
+  let countdownText = '';
+  if (status === 'Pre-booked' && seat.prebookedUntil) {
+    const rem = Math.max(0, seat.prebookedUntil - Date.now());
+    const mins = Math.floor(rem / 60000);
+    const secs = Math.floor((rem % 60000) / 1000);
+    countdownText = ` (${mins}:${secs.toString().padStart(2, '0')})`;
+  }
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime();
+    if (holoRef.current && status === 'Pre-booked') {
+      holoRef.current.rotation.y = t * 1.8;
+      holoRef.current.position.y = 0.68 + Math.sin(t * 3) * 0.04;
+    }
+    if (soundWaveRef.current && loud) {
+      const s = 1 + (t % 1) * 1.6;
+      soundWaveRef.current.scale.set(s, s, 1);
+    }
+  });
 
   return (
     <group
@@ -100,7 +139,7 @@ function PlasticChairNode({ seat, position, rotationY, isSelected, onSelect }) {
 
       {/* FSR Pressure Sensor Film Mounted on Plastic Seat */}
       <Cylinder args={[0.2, 0.2, 0.015, 24]} position={[0, 0.485, 0]}>
-        <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.5} />
+        <meshStandardMaterial color={statusColor} emissive={statusColor} emissiveIntensity={0.55} />
       </Cylinder>
 
       {/* Under-Table IR Sensor + Scanning Beam Aimed at Chair */}
@@ -117,7 +156,7 @@ function PlasticChairNode({ seat, position, rotationY, isSelected, onSelect }) {
         </Cone>
       </group>
 
-      {/* Student Avatar or Bag on the Plastic Chair */}
+      {/* Student Avatar when Occupied */}
       {status === 'Occupied' && (
         <group position={[0, 0.82, 0]}>
           <Cylinder args={[0.18, 0.22, 0.55, 20]}>
@@ -130,18 +169,41 @@ function PlasticChairNode({ seat, position, rotationY, isSelected, onSelect }) {
         </group>
       )}
 
+      {/* Unattended Backpack when Bag Hogging */}
       {status === 'Bag Hogging' && (
         <RoundedBox args={[0.34, 0.28, 0.26]} radius={0.04} position={[0, 0.62, 0]}>
           <meshStandardMaterial color="#d97706" />
         </RoundedBox>
       )}
 
-      {/* Pure 3D Floating Label (Crash-Free in React 19) */}
+      {/* Rotating Violet Hologram Token when Pre-booked for 5 Mins */}
+      {status === 'Pre-booked' && (
+        <group ref={holoRef} position={[0, 0.68, 0]}>
+          <Cylinder args={[0.18, 0.18, 0.04, 6]}>
+            <meshStandardMaterial
+              color="#8b5cf6"
+              emissive="#7c3aed"
+              emissiveIntensity={0.9}
+              wireframe={false}
+            />
+          </Cylinder>
+        </group>
+      )}
+
+      {/* Red Acoustic Alert Ring if Noise > Zone Limit */}
+      {loud && (
+        <mesh ref={soundWaveRef} position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <ringGeometry args={[0.32, 0.38, 32]} />
+          <meshBasicMaterial color="#dc2626" side={2} />
+        </mesh>
+      )}
+
+      {/* Pure 3D Floating Label */}
       <FloatingBadge3D
-        position={[0, 1.42, 0]}
-        text={`${seat.id} • ${status}`}
-        subText={`IR: ${seat.irDistance}cm | ${seat.pressureWeight}kg`}
-        bgColor={isSelected ? '#2563eb' : statusColor}
+        position={[0, 1.44, 0]}
+        text={`${seat.id} • ${status}${countdownText}`}
+        subText={`IR:${seat.irDistance}cm | ${seat.pressureWeight}kg | ${seat.noiseDb}dB`}
+        bgColor={loud ? '#dc2626' : isSelected ? '#2563eb' : statusColor}
         onClick={() => onSelect(seat.id)}
       />
     </group>
@@ -223,9 +285,15 @@ function HardwareWorkbenchScene({ seat, visible }) {
   const fsrPulseRef = useRef();
   const wifiRingRef = useRef();
 
-  const status = computeNodeStatus(seat.irDistance, seat.pressureWeight);
+  const status = computeNodeStatus(seat.irDistance, seat.pressureWeight, seat.prebookedUntil);
   const statusHex =
-    status === 'Occupied' ? '#e11d48' : status === 'Bag Hogging' ? '#d97706' : '#059669';
+    status === 'Occupied'
+      ? '#e11d48'
+      : status === 'Bag Hogging'
+      ? '#d97706'
+      : status === 'Pre-booked'
+      ? '#7c3aed'
+      : '#059669';
 
   useFrame((state) => {
     if (!visible) return;
@@ -382,13 +450,17 @@ export default function HardwareRig3D() {
   } = useSeatStore();
 
   const activeSeat = seats.find((s) => s.id === selectedSeatId) || seats[0];
-  const status = computeNodeStatus(activeSeat.irDistance, activeSeat.pressureWeight);
+  const status = computeNodeStatus(
+    activeSeat.irDistance,
+    activeSeat.pressureWeight,
+    activeSeat.prebookedUntil
+  );
 
   return (
     <div className="h-full w-full relative bg-gradient-to-b from-slate-100 via-blue-50/40 to-slate-200/70">
       {/* Floating Control Card */}
-      <div className="absolute top-3 left-6 z-20 w-88 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-4 text-slate-800 shadow-xl">
-        <div className="flex items-center justify-between mb-2.5">
+      <div className="absolute top-3 left-6 z-20 w-92 bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl p-4 text-slate-800 shadow-xl">
+        <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-blue-100 text-blue-700">
               {workspaceMode === 'table' ? <Layers size={16} /> : <Cpu size={16} />}
@@ -398,7 +470,7 @@ export default function HardwareRig3D() {
                 {workspaceMode === 'table' ? '3D Open Table Simulator' : '3D ESP32 Hardware Lab'}
               </h2>
               <p className="text-[11px] italic text-slate-500">
-                Controlling Plastic Chair <strong className="not-italic text-blue-700">{activeSeat.id}</strong>
+                Active Chair <strong className="not-italic text-blue-700">{activeSeat.id}</strong> ({activeSeat.zone})
               </p>
             </div>
           </div>
@@ -412,7 +484,7 @@ export default function HardwareRig3D() {
         </div>
 
         {/* Chair Selector Pills */}
-        <div className="grid grid-cols-6 gap-1 mb-2.5 bg-slate-100 p-1 rounded-full border border-slate-200/70">
+        <div className="grid grid-cols-6 gap-1 mb-2 bg-slate-100 p-1 rounded-full border border-slate-200/70">
           {seats.map((s) => (
             <button
               key={s.id}
@@ -428,11 +500,11 @@ export default function HardwareRig3D() {
           ))}
         </div>
 
-        {/* Scenario Pill Selector */}
-        <div className="bg-slate-100 p-1 rounded-full grid grid-cols-3 gap-1 mb-3 border border-slate-200/70">
+        {/* 4-State Scenario Pill Selector (Includes 5-Min Pre-book!) */}
+        <div className="bg-slate-100 p-1 rounded-full grid grid-cols-4 gap-1 mb-2.5 border border-slate-200/70">
           <button
             onClick={() => applyPreset('vacant')}
-            className={`text-[11px] py-1 rounded-full transition-all cursor-pointer ${
+            className={`text-[10px] py-1 rounded-full transition-all cursor-pointer ${
               status === 'Vacant'
                 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold shadow-xs'
                 : 'text-slate-600 italic'
@@ -441,33 +513,43 @@ export default function HardwareRig3D() {
             1. Vacant
           </button>
           <button
+            onClick={() => applyPreset('prebook')}
+            className={`text-[10px] py-1 rounded-full transition-all cursor-pointer flex items-center justify-center gap-0.5 ${
+              status === 'Pre-booked'
+                ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white font-bold shadow-xs'
+                : 'text-slate-600 italic'
+            }`}
+          >
+            <Clock size={10} /> 2. Hold 5m
+          </button>
+          <button
             onClick={() => applyPreset('studying')}
-            className={`text-[11px] py-1 rounded-full transition-all cursor-pointer ${
+            className={`text-[10px] py-1 rounded-full transition-all cursor-pointer ${
               status === 'Occupied'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
                 : 'text-slate-600 italic'
             }`}
           >
-            2. Studying
+            3. Sit
           </button>
           <button
             onClick={() => applyPreset('hogging')}
-            className={`text-[11px] py-1 rounded-full transition-all cursor-pointer ${
+            className={`text-[10px] py-1 rounded-full transition-all cursor-pointer ${
               status === 'Bag Hogging'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold shadow-xs'
                 : 'text-slate-600 italic'
             }`}
           >
-            3. Leave Bag
+            4. Bag
           </button>
         </div>
 
-        {/* Sliders */}
-        <div className="space-y-2 text-xs">
-          <div className="bg-slate-50 p-2 rounded-2xl border border-slate-200/70">
-            <div className="flex justify-between text-[11px] mb-0.5">
+        {/* 3 Live Sensor Sliders (IR + FSR + Acoustic dB) */}
+        <div className="space-y-1.5 text-xs">
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-2xl border border-slate-200/70">
+            <div className="flex justify-between text-[11px]">
               <span className="font-bold text-slate-700">
-                IR Obstacle Sensor <span className="font-normal italic text-slate-500">(Under Table)</span>
+                IR Obstacle Sensor <span className="font-normal italic text-slate-500">(GPIO 34)</span>
               </span>
               <span className="text-blue-700 font-bold italic">{activeSeat.irDistance} cm</span>
             </div>
@@ -477,14 +559,14 @@ export default function HardwareRig3D() {
               max="180"
               value={activeSeat.irDistance}
               onChange={(e) => updateActiveSeatHardware({ irDistance: Number(e.target.value) })}
-              className="w-full accent-blue-600 cursor-pointer"
+              className="w-full accent-blue-600 cursor-pointer h-1.5"
             />
           </div>
 
-          <div className="bg-slate-50 p-2 rounded-2xl border border-slate-200/70">
-            <div className="flex justify-between text-[11px] mb-0.5">
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-2xl border border-slate-200/70">
+            <div className="flex justify-between text-[11px]">
               <span className="font-bold text-slate-700">
-                FSR Pressure Pad <span className="font-normal italic text-slate-500">(Plastic Chair)</span>
+                FSR Pressure Pad <span className="font-normal italic text-slate-500">(GPIO 35)</span>
               </span>
               <span className="text-indigo-700 font-bold italic">{activeSeat.pressureWeight} kg</span>
             </div>
@@ -494,13 +576,36 @@ export default function HardwareRig3D() {
               max="95"
               value={activeSeat.pressureWeight}
               onChange={(e) => updateActiveSeatHardware({ pressureWeight: Number(e.target.value) })}
-              className="w-full accent-indigo-600 cursor-pointer"
+              className="w-full accent-indigo-600 cursor-pointer h-1.5"
+            />
+          </div>
+
+          <div className="bg-slate-50 px-2.5 py-1.5 rounded-2xl border border-slate-200/70">
+            <div className="flex justify-between text-[11px]">
+              <span className="font-bold text-slate-700">
+                Zone Mic Decibels <span className="font-normal italic text-slate-500">(Limit {activeSeat.maxDb}dB)</span>
+              </span>
+              <span
+                className={`font-bold italic ${
+                  activeSeat.noiseDb > activeSeat.maxDb ? 'text-red-600' : 'text-teal-700'
+                }`}
+              >
+                {activeSeat.noiseDb} dB
+              </span>
+            </div>
+            <input
+              type="range"
+              min="28"
+              max="82"
+              value={activeSeat.noiseDb}
+              onChange={(e) => updateActiveSeatHardware({ noiseDb: Number(e.target.value) })}
+              className="w-full accent-teal-600 cursor-pointer h-1.5"
             />
           </div>
         </div>
       </div>
 
-      {/* 3D Canvas — Both scenes stay mounted via `visible` so zero roots ever unmount */}
+      {/* 3D Canvas */}
       <Canvas camera={{ position: [0, 3.2, 5.2], fov: 42 }}>
         <ambientLight intensity={1.7} />
         <hemisphereLight args={['#ffffff', '#cbd5e1', 1.2]} />
