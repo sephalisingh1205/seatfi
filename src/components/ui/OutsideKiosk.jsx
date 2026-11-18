@@ -6,14 +6,11 @@ import {
   Monitor,
   Wifi,
   ExternalLink,
-  ShieldAlert,
-  CheckCircle2,
-  UserCheck,
   Cpu,
   Layers,
   Clock,
   Volume2,
-  Sparkles,
+  UserCheck,
 } from 'lucide-react';
 import { useSeatStore, computeNodeStatus, isNoiseViolation } from '@/store/useSeatStore';
 
@@ -26,17 +23,19 @@ export default function OutsideKiosk() {
     setWorkspaceMode,
     bookSeat,
     cancelBooking,
+    confirmArrivalAndSit,
     syncFromStorage,
   } = useSeatStore();
 
+  const [clickedId, setClickedId] = useState(null);
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const cached = localStorage.getItem('seatfi_live_state_v3');
+    const cached = localStorage.getItem('seatfi_live_state_v4');
     if (cached) syncFromStorage(JSON.parse(cached));
 
     const handleStorage = (e) => {
-      if (e.key === 'seatfi_live_state_v3' && e.newValue) {
+      if (e.key === 'seatfi_live_state_v4' && e.newValue) {
         syncFromStorage(JSON.parse(e.newValue));
       }
     };
@@ -56,7 +55,6 @@ export default function OutsideKiosk() {
   );
   const activeLoud = isNoiseViolation(activeSeat);
 
-  // Live Summary Counts
   const counts = seats.reduce(
     (acc, s) => {
       const st = computeNodeStatus(s.irDistance, s.pressureWeight, s.prebookedUntil);
@@ -74,18 +72,19 @@ export default function OutsideKiosk() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const cardShade = (status, isSelected, loud) => {
+  const cardShade = (status, isSelected, loud, isPulsing) => {
+    const anim = isPulsing ? 'scale-95 ring-4 ring-blue-400/50 ' : '';
     const ring = isSelected
       ? 'ring-2 ring-blue-600 shadow-md scale-[1.01] '
       : 'shadow-xs opacity-95 hover:opacity-100 ';
-    if (loud) return ring + 'bg-gradient-to-b from-white to-red-100 border-red-400 text-red-950';
+    if (loud) return anim + ring + 'bg-gradient-to-b from-white to-red-100 border-red-400 text-red-950';
     if (status === 'Occupied')
-      return ring + 'bg-gradient-to-b from-white to-rose-50/80 border-rose-200 text-rose-900';
+      return anim + ring + 'bg-gradient-to-b from-white to-rose-50/85 border-rose-200 text-rose-900';
     if (status === 'Bag Hogging')
-      return ring + 'bg-gradient-to-b from-white to-amber-50/80 border-amber-200 text-amber-900';
+      return anim + ring + 'bg-gradient-to-b from-white to-amber-50/85 border-amber-200 text-amber-900';
     if (status === 'Pre-booked')
-      return ring + 'bg-gradient-to-b from-white to-violet-50/90 border-violet-300 text-violet-900';
-    return ring + 'bg-gradient-to-b from-white to-emerald-50/80 border-emerald-200 text-emerald-900';
+      return anim + ring + 'bg-gradient-to-b from-white to-violet-50/95 border-violet-300 text-violet-900';
+    return anim + ring + 'bg-gradient-to-b from-white to-emerald-50/85 border-emerald-200 text-emerald-900';
   };
 
   const pillBadge = (status) => {
@@ -96,7 +95,10 @@ export default function OutsideKiosk() {
   };
 
   return (
-    <div className="h-full w-full px-6 py-3 flex flex-col justify-between overflow-y-auto">
+    <div
+      style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
+      className="h-full w-full px-6 py-3 flex flex-col justify-between overflow-y-auto"
+    >
       {/* Corporate Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2.5">
         <div className="flex items-center gap-3">
@@ -123,11 +125,10 @@ export default function OutsideKiosk() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          {/* 3D Workspace Mode Switcher Pill */}
-          <div className="bg-slate-100 p-1 rounded-full border border-slate-200/80 flex items-center gap-1">
+          <div className="bg-slate-100 p-1 rounded-2xl border border-slate-200/80 flex items-center gap-1">
             <button
               onClick={() => setWorkspaceMode('table')}
-              className={`flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+              className={`btn-click-fx flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                 workspaceMode === 'table'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
                   : 'text-slate-600 italic hover:text-slate-900'
@@ -138,7 +139,7 @@ export default function OutsideKiosk() {
             </button>
             <button
               onClick={() => setWorkspaceMode('workbench')}
-              className={`flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+              className={`btn-click-fx flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
                 workspaceMode === 'workbench'
                   ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
                   : 'text-slate-600 italic hover:text-slate-900'
@@ -152,9 +153,9 @@ export default function OutsideKiosk() {
           <Link
             href="/portal"
             target="_blank"
-            className="flex items-center gap-2 text-xs font-bold italic bg-gradient-to-r from-slate-800 to-slate-900 hover:from-blue-700 hover:to-indigo-800 text-white px-4 py-2 rounded-full shadow-sm transition-all"
+            className="btn-click-fx flex items-center gap-2 text-xs font-bold italic bg-gradient-to-r from-slate-800 to-slate-900 hover:from-blue-700 hover:to-indigo-800 text-white px-4 py-2 rounded-2xl shadow-sm transition-all"
           >
-            <span>Student Portal (/portal)</span>
+            <span>Student Login & Portal (/portal)</span>
             <ExternalLink size={13} />
           </Link>
         </div>
@@ -162,12 +163,11 @@ export default function OutsideKiosk() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 my-auto py-1.5">
-        {/* Left 8 Columns: Shared Long Table Visual Schematic */}
         <div className="lg:col-span-8 bg-slate-100/70 border border-slate-200/90 rounded-2xl p-3 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1.5 px-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
               Shared Reading Table Layout{' '}
-              <span className="font-normal italic">(Click any chair or pre-book for 5 mins)</span>
+              <span className="font-normal italic">(Click any chair to inspect or hold for 5 mins)</span>
             </span>
             <span className="text-[11px] italic text-slate-500">
               North = Silent Zone (≤50dB) • South = Collab Zone
@@ -187,11 +187,16 @@ export default function OutsideKiosk() {
               return (
                 <div
                   key={seat.id}
-                  onClick={() => setSelectedSeat(seat.id)}
-                  className={`p-3 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all ${cardShade(
+                  onClick={() => {
+                    setClickedId(seat.id);
+                    setTimeout(() => setClickedId(null), 350);
+                    setSelectedSeat(seat.id);
+                  }}
+                  className={`p-3 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all duration-200 ${cardShade(
                     currentStatus,
                     isSelected,
-                    loud
+                    loud,
+                    clickedId === seat.id
                   )}`}
                 >
                   <div className="flex items-center justify-between">
@@ -211,7 +216,6 @@ export default function OutsideKiosk() {
                       {currentStatus}
                     </span>
 
-                    {/* Running Countdown Timer inside Pre-booked Card */}
                     {currentStatus === 'Pre-booked' && seat.prebookedUntil && (
                       <div className="mt-1 flex items-center justify-between bg-violet-100/90 border border-violet-300 px-2 py-0.5 rounded-lg">
                         <span className="text-[9px] italic text-violet-700">Hold:</span>
@@ -221,14 +225,13 @@ export default function OutsideKiosk() {
                       </div>
                     )}
 
-                    {/* Quick 5-Min Pre-book Pill directly on Kiosk for Vacant Chairs */}
                     {currentStatus === 'Vacant' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          bookSeat(seat.id, 5, 'KIOSK-HOLD');
+                          bookSeat(seat.id, 5, '12409821', 'Kiosk Hold');
                         }}
-                        className="mt-1.5 w-full text-[10px] font-bold italic bg-emerald-600 hover:bg-emerald-700 text-white py-0.5 px-2 rounded-full transition cursor-pointer"
+                        className="btn-click-fx mt-1.5 w-full text-[10px] font-bold italic bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-2 rounded-xl transition cursor-pointer"
                       >
                         + Hold 5m
                       </button>
@@ -251,7 +254,7 @@ export default function OutsideKiosk() {
           </div>
         </div>
 
-        {/* Right 4 Columns: Active Chair ESP32 Telemetry + Serial Packet */}
+        {/* Right 4 Columns: Active Chair ESP32 Telemetry */}
         <div className="lg:col-span-4 bg-gradient-to-br from-slate-50 via-white to-blue-50/60 border border-slate-200/90 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
             <div>
@@ -264,12 +267,20 @@ export default function OutsideKiosk() {
             </div>
             <div className="flex items-center gap-1.5">
               {activeStatus === 'Pre-booked' && (
-                <button
-                  onClick={() => cancelBooking(activeSeat.id)}
-                  className="text-[10px] font-bold italic text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-2 py-0.5 rounded-full cursor-pointer"
-                >
-                  Cancel
-                </button>
+                <>
+                  <button
+                    onClick={() => confirmArrivalAndSit(activeSeat.id)}
+                    className="btn-click-fx text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-lg cursor-pointer"
+                  >
+                    Sit
+                  </button>
+                  <button
+                    onClick={() => cancelBooking(activeSeat.id)}
+                    className="btn-click-fx text-[10px] font-bold italic text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </>
               )}
               <span
                 className={`flex items-center gap-1 text-xs font-bold italic px-3 py-0.5 rounded-full ${pillBadge(
@@ -303,7 +314,6 @@ export default function OutsideKiosk() {
             </div>
           </div>
 
-          {/* Live Serial Telemetry Stream Line */}
           <div className="text-[10px] font-mono bg-slate-900 text-emerald-400 px-3 py-1.5 rounded-xl flex items-center justify-between">
             <span className="truncate">
               {`{"node":"${activeSeat.id}","ir":${activeSeat.irDistance},"kg":${activeSeat.pressureWeight},"st":"${activeStatus.toUpperCase()}"}`}

@@ -13,6 +13,7 @@ const initialSeats = [
     noiseDb: 38,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: null,
     flaggedForRemoval: false,
   },
@@ -26,6 +27,7 @@ const initialSeats = [
     noiseDb: 34,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: null,
     flaggedForRemoval: false,
   },
@@ -39,6 +41,7 @@ const initialSeats = [
     noiseDb: 35,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: Date.now() - 4 * 60 * 1000,
     flaggedForRemoval: false,
   },
@@ -52,6 +55,7 @@ const initialSeats = [
     noiseDb: 54,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: null,
     flaggedForRemoval: false,
   },
@@ -65,6 +69,7 @@ const initialSeats = [
     noiseDb: 39,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: null,
     flaggedForRemoval: false,
   },
@@ -78,6 +83,7 @@ const initialSeats = [
     noiseDb: 48,
     prebookedUntil: null,
     bookedBy: null,
+    bookedByName: null,
     hoggingSince: null,
     flaggedForRemoval: false,
   },
@@ -96,7 +102,7 @@ export const isNoiseViolation = (seat) => {
 
 const saveStateToStorage = (seats) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('seatfi_live_state_v3', JSON.stringify(seats));
+    localStorage.setItem('seatfi_live_state_v4', JSON.stringify(seats));
   }
 };
 
@@ -105,8 +111,37 @@ export const useSeatStore = create((set, get) => ({
   selectedSeatId: 'S-01',
   workspaceMode: 'table', // 'table' | 'workbench'
   portalFilter: 'ALL', // 'ALL' | 'VACANT' | 'SILENT' | 'COLLAB'
+  lastActionId: null,
 
-  setSelectedSeat: (id) => set({ selectedSeatId: id }),
+  // Authenticated Student Session
+  currentUser: null, // { regNo, name, department, role }
+
+  loginUser: (userObj) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('seatfi_auth_user', JSON.stringify(userObj));
+    }
+    set({ currentUser: userObj });
+  },
+
+  logoutUser: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('seatfi_auth_user');
+    }
+    set({ currentUser: null });
+  },
+
+  hydrateAuth: () => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('seatfi_auth_user');
+      if (saved) {
+        try {
+          set({ currentUser: JSON.parse(saved) });
+        } catch (e) {}
+      }
+    }
+  },
+
+  setSelectedSeat: (id) => set({ selectedSeatId: id, lastActionId: id }),
   setWorkspaceMode: (mode) => set({ workspaceMode: mode }),
   setPortalFilter: (filter) => set({ portalFilter: filter }),
 
@@ -134,7 +169,7 @@ export const useSeatStore = create((set, get) => ({
     });
   },
 
-  bookSeat: (id, minutes = 5, studentReg = '12409821') => {
+  bookSeat: (id, minutes = 5, studentReg = '12409821', studentName = 'Nikhil') => {
     set((state) => {
       const nextSeats = state.seats.map((s) =>
         s.id === id
@@ -144,23 +179,24 @@ export const useSeatStore = create((set, get) => ({
               pressureWeight: 0,
               prebookedUntil: Date.now() + minutes * 60 * 1000,
               bookedBy: studentReg,
+              bookedByName: studentName,
               hoggingSince: null,
               flaggedForRemoval: false,
             }
           : s
       );
       saveStateToStorage(nextSeats);
-      return { seats: nextSeats };
+      return { seats: nextSeats, lastActionId: id };
     });
   },
 
   cancelBooking: (id) => {
     set((state) => {
       const nextSeats = state.seats.map((s) =>
-        s.id === id ? { ...s, prebookedUntil: null, bookedBy: null } : s
+        s.id === id ? { ...s, prebookedUntil: null, bookedBy: null, bookedByName: null } : s
       );
       saveStateToStorage(nextSeats);
-      return { seats: nextSeats };
+      return { seats: nextSeats, lastActionId: id };
     });
   },
 
@@ -179,7 +215,7 @@ export const useSeatStore = create((set, get) => ({
           : s
       );
       saveStateToStorage(nextSeats);
-      return { seats: nextSeats, selectedSeatId: id };
+      return { seats: nextSeats, selectedSeatId: id, lastActionId: id };
     });
   },
 
@@ -189,7 +225,7 @@ export const useSeatStore = create((set, get) => ({
         s.id === id ? { ...s, flaggedForRemoval: true } : s
       );
       saveStateToStorage(nextSeats);
-      return { seats: nextSeats };
+      return { seats: nextSeats, lastActionId: id };
     });
   },
 
@@ -201,6 +237,7 @@ export const useSeatStore = create((set, get) => ({
         noiseDb: 33,
         prebookedUntil: null,
         bookedBy: null,
+        bookedByName: null,
         hoggingSince: null,
         flaggedForRemoval: false,
       });
@@ -224,7 +261,7 @@ export const useSeatStore = create((set, get) => ({
       });
     }
     if (preset === 'prebook') {
-      get().bookSeat(get().selectedSeatId, 5, 'LPU-CSE-06');
+      get().bookSeat(get().selectedSeatId, 5, '12409821', 'Nikhil');
     }
   },
 
