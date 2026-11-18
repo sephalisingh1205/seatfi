@@ -35,7 +35,7 @@ export default function OutsideKiosk() {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
-                SEATFI <span className="font-normal italic text-slate-500">// Outside Library Kiosk</span>
+                SEATFI <span className="font-normal italic text-slate-500"> Developed by SEPHALI SINGH</span>
               </h1>
               <span className="text-[11px] font-bold italic bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                 <Wifi size={11} className="text-emerald-600" /> 6-Chair Bus Online

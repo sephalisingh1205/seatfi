@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'SEATFI: Smart Library IoT Occupancy System',
-  description: 'Developed bt SEPHALI SINGH',
+  description: 'Developed by SEPHALI SINGH',
 };
 
 export default function RootLayout({ children }) {
