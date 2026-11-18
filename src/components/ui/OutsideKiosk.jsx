@@ -10,7 +10,8 @@ import {
   Layers,
   Clock,
   Volume2,
-  UserCheck,
+  Shuffle,
+  Award,
 } from 'lucide-react';
 import { useSeatStore, computeNodeStatus, isNoiseViolation } from '@/store/useSeatStore';
 
@@ -24,6 +25,8 @@ export default function OutsideKiosk() {
     bookSeat,
     cancelBooking,
     confirmArrivalAndSit,
+    shuffleSeats,
+    pulseLiveTelemetry,
     syncFromStorage,
   } = useSeatStore();
 
@@ -31,21 +34,23 @@ export default function OutsideKiosk() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    const cached = localStorage.getItem('seatfi_live_state_v4');
+    const cached = localStorage.getItem('seatfi_live_state_v5');
     if (cached) syncFromStorage(JSON.parse(cached));
 
     const handleStorage = (e) => {
-      if (e.key === 'seatfi_live_state_v4' && e.newValue) {
+      if (e.key === 'seatfi_live_state_v5' && e.newValue) {
         syncFromStorage(JSON.parse(e.newValue));
       }
     };
     window.addEventListener('storage', handleStorage);
     const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    const liveJitter = setInterval(() => pulseLiveTelemetry(), 2500);
     return () => {
       window.removeEventListener('storage', handleStorage);
       clearInterval(timer);
+      clearInterval(liveJitter);
     };
-  }, [syncFromStorage]);
+  }, [syncFromStorage, pulseLiveTelemetry]);
 
   const activeSeat = seats.find((s) => s.id === selectedSeatId) || seats[0];
   const activeStatus = computeNodeStatus(
@@ -72,37 +77,33 @@ export default function OutsideKiosk() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Solid Professional Card Shades (Zero Gradients)
   const cardShade = (status, isSelected, loud, isPulsing) => {
-    const anim = isPulsing ? 'scale-95 ring-4 ring-blue-400/50 ' : '';
-    const ring = isSelected
-      ? 'ring-2 ring-blue-600 shadow-md scale-[1.01] '
-      : 'shadow-xs opacity-95 hover:opacity-100 ';
-    if (loud) return anim + ring + 'bg-gradient-to-b from-white to-red-100 border-red-400 text-red-950';
-    if (status === 'Occupied')
-      return anim + ring + 'bg-gradient-to-b from-white to-rose-50/85 border-rose-200 text-rose-900';
-    if (status === 'Bag Hogging')
-      return anim + ring + 'bg-gradient-to-b from-white to-amber-50/85 border-amber-200 text-amber-900';
-    if (status === 'Pre-booked')
-      return anim + ring + 'bg-gradient-to-b from-white to-violet-50/95 border-violet-300 text-violet-900';
-    return anim + ring + 'bg-gradient-to-b from-white to-emerald-50/85 border-emerald-200 text-emerald-900';
+    const anim = isPulsing ? 'scale-95 ' : '';
+    const ring = isSelected ? 'ring-2 ring-blue-700 shadow-sm ' : '';
+    if (loud) return anim + ring + 'bg-red-50 border-red-400 text-red-950';
+    if (status === 'Occupied') return anim + ring + 'bg-rose-50 border-rose-300 text-rose-950';
+    if (status === 'Bag Hogging') return anim + ring + 'bg-amber-50 border-amber-300 text-amber-950';
+    if (status === 'Pre-booked') return anim + ring + 'bg-violet-50 border-violet-400 text-violet-950';
+    return anim + ring + 'bg-emerald-50 border-emerald-300 text-emerald-950';
   };
 
   const pillBadge = (status) => {
-    if (status === 'Occupied') return 'bg-rose-100 text-rose-800 border border-rose-200';
-    if (status === 'Bag Hogging') return 'bg-amber-100 text-amber-800 border border-amber-200';
-    if (status === 'Pre-booked') return 'bg-violet-100 text-violet-800 border border-violet-300';
-    return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    if (status === 'Occupied') return 'bg-rose-100 text-rose-900 border border-rose-300';
+    if (status === 'Bag Hogging') return 'bg-amber-100 text-amber-900 border border-amber-300';
+    if (status === 'Pre-booked') return 'bg-violet-200 text-violet-950 border border-violet-400';
+    return 'bg-emerald-100 text-emerald-900 border border-emerald-300';
   };
 
   return (
     <div
       style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
-      className="h-full w-full px-6 py-3 flex flex-col justify-between overflow-y-auto"
+      className="h-full w-full px-6 py-3 flex flex-col justify-between overflow-y-auto bg-white"
     >
-      {/* Corporate Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/80 pb-2.5">
+      {/* Solid Professional Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-2.5">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-500/20">
+          <div className="p-2.5 rounded-2xl bg-slate-900 text-white">
             <Monitor size={19} />
           </div>
           <div>
@@ -110,12 +111,15 @@ export default function OutsideKiosk() {
               <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900">
                 SEATFI <span className="font-normal italic text-slate-500">// Outside Library Kiosk</span>
               </h1>
-              <span className="text-[11px] font-bold italic bg-emerald-100 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                <Wifi size={11} className="text-emerald-600" /> 6-Chair ESP32 Bus Online
+              <span className="text-[11px] font-bold italic bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                <Wifi size={11} className="text-emerald-700" /> 6-Chair ESP32 Bus Live
+              </span>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] italic text-slate-600 bg-slate-100 border border-slate-300 px-2.5 py-0.5 rounded-lg">
+                <Award size={11} className="text-blue-700" /> Developed by <strong className="not-italic text-slate-900">Sephali Singh</strong>
               </span>
             </div>
             <p className="text-xs italic text-slate-500">
-              <strong className="font-bold not-italic text-slate-700">Open Reading Table #1</strong> •{' '}
+              <strong className="font-bold not-italic text-slate-700">Open Reading Hall</strong> •{' '}
               <span className="text-emerald-700 font-bold not-italic">{counts.Vacant} Vacant</span> ·{' '}
               <span className="text-violet-700 font-bold not-italic">{counts['Pre-booked']} Pre-booked</span> ·{' '}
               <span className="text-rose-700 font-bold not-italic">{counts.Occupied} Studying</span> ·{' '}
@@ -124,13 +128,20 @@ export default function OutsideKiosk() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <div className="bg-slate-100 p-1 rounded-2xl border border-slate-200/80 flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={shuffleSeats}
+            className="btn-press flex items-center gap-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-900 border border-slate-300 px-3 py-1.5 rounded-xl cursor-pointer"
+          >
+            <Shuffle size={13} /> Shuffle Live
+          </button>
+
+          <div className="bg-slate-100 p-1 rounded-xl border border-slate-300 flex items-center gap-1">
             <button
               onClick={() => setWorkspaceMode('table')}
-              className={`btn-click-fx flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+              className={`btn-press flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 workspaceMode === 'table'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
+                  ? 'bg-slate-900 text-white font-bold'
                   : 'text-slate-600 italic hover:text-slate-900'
               }`}
             >
@@ -139,23 +150,23 @@ export default function OutsideKiosk() {
             </button>
             <button
               onClick={() => setWorkspaceMode('workbench')}
-              className={`btn-click-fx flex items-center gap-1.5 text-xs px-3.5 py-1.5 rounded-xl transition-all cursor-pointer ${
+              className={`btn-press flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 workspaceMode === 'workbench'
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold shadow-xs'
+                  ? 'bg-slate-900 text-white font-bold'
                   : 'text-slate-600 italic hover:text-slate-900'
               }`}
             >
               <Cpu size={13} />
-              <span>2. 3D ESP32 Hardware Lab</span>
+              <span>2. 3D Hardware Lab</span>
             </button>
           </div>
 
           <Link
             href="/portal"
             target="_blank"
-            className="btn-click-fx flex items-center gap-2 text-xs font-bold italic bg-gradient-to-r from-slate-800 to-slate-900 hover:from-blue-700 hover:to-indigo-800 text-white px-4 py-2 rounded-2xl shadow-sm transition-all"
+            className="btn-press flex items-center gap-2 text-xs font-bold bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl transition-all"
           >
-            <span>Student Login & Portal (/portal)</span>
+            <span>Student Portal (/portal)</span>
             <ExternalLink size={13} />
           </Link>
         </div>
@@ -163,14 +174,14 @@ export default function OutsideKiosk() {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 my-auto py-1.5">
-        <div className="lg:col-span-8 bg-slate-100/70 border border-slate-200/90 rounded-2xl p-3 flex flex-col justify-between">
+        <div className="lg:col-span-8 bg-slate-50 border border-slate-300 rounded-2xl p-3 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-1.5 px-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
-              Shared Reading Table Layout{' '}
-              <span className="font-normal italic">(Click any chair to inspect or hold for 5 mins)</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+              Live 6-Chair Matrix{' '}
+              <span className="font-normal italic text-slate-500">(Click any chair to inspect or hold for 5m)</span>
             </span>
             <span className="text-[11px] italic text-slate-500">
-              North = Silent Zone (≤50dB) • South = Collab Zone
+              Nikhil (12512683) • Sephali Singh (12522159)
             </span>
           </div>
 
@@ -189,10 +200,10 @@ export default function OutsideKiosk() {
                   key={seat.id}
                   onClick={() => {
                     setClickedId(seat.id);
-                    setTimeout(() => setClickedId(null), 350);
+                    setTimeout(() => setClickedId(null), 250);
                     setSelectedSeat(seat.id);
                   }}
-                  className={`p-3 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all duration-200 ${cardShade(
+                  className={`p-3 rounded-2xl border cursor-pointer flex flex-col justify-between transition-all duration-150 ${cardShade(
                     currentStatus,
                     isSelected,
                     loud,
@@ -201,14 +212,14 @@ export default function OutsideKiosk() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-sm text-slate-900">{seat.id}</span>
-                    <span className="text-[9px] italic px-1.5 py-0.5 rounded-full bg-white/80 text-slate-600 border border-slate-200">
+                    <span className="text-[9px] italic px-1.5 py-0.5 rounded bg-white text-slate-700 border border-slate-300">
                       {seat.zone === 'Silent Zone' ? 'Silent' : 'Collab'}
                     </span>
                   </div>
 
                   <div className="my-2">
                     <span
-                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${pillBadge(
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${pillBadge(
                         currentStatus
                       )}`}
                     >
@@ -217,9 +228,9 @@ export default function OutsideKiosk() {
                     </span>
 
                     {currentStatus === 'Pre-booked' && seat.prebookedUntil && (
-                      <div className="mt-1 flex items-center justify-between bg-violet-100/90 border border-violet-300 px-2 py-0.5 rounded-lg">
-                        <span className="text-[9px] italic text-violet-700">Hold:</span>
-                        <span className="text-[11px] font-bold font-mono text-violet-900">
+                      <div className="mt-1 flex items-center justify-between bg-violet-200/80 border border-violet-400 px-2 py-0.5 rounded-md">
+                        <span className="text-[9px] italic text-violet-900">Hold:</span>
+                        <span className="text-[11px] font-bold font-mono text-violet-950">
                           {formatCountdown(seat.prebookedUntil)}
                         </span>
                       </div>
@@ -229,24 +240,24 @@ export default function OutsideKiosk() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          bookSeat(seat.id, 5, '12409821', 'Kiosk Hold');
+                          bookSeat(seat.id, 5, '12512683', 'Nikhil');
                         }}
-                        className="btn-click-fx mt-1.5 w-full text-[10px] font-bold italic bg-emerald-600 hover:bg-emerald-700 text-white py-1 px-2 rounded-xl transition cursor-pointer"
+                        className="btn-press mt-1.5 w-full text-[10px] font-bold bg-emerald-700 hover:bg-emerald-800 text-white py-1 px-2 rounded-lg transition cursor-pointer"
                       >
                         + Hold 5m
                       </button>
                     )}
 
                     {loud && (
-                      <div className="mt-1 text-[9px] font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                        <Volume2 size={10} /> {seat.noiseDb}dB Loud!
+                      <div className="mt-1 text-[9px] font-bold text-red-800 bg-red-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Volume2 size={10} /> {seat.noiseDb}dB
                       </div>
                     )}
                   </div>
 
-                  <div className="border-t border-slate-200/60 pt-1.5 text-[10px] flex justify-between items-center">
-                    <span className="italic text-slate-500">{seat.irDistance}cm</span>
-                    <span className="font-bold text-slate-700">{seat.pressureWeight}kg</span>
+                  <div className="border-t border-slate-300/80 pt-1.5 text-[10px] flex justify-between items-center">
+                    <span className="italic text-slate-600">{seat.irDistance}cm</span>
+                    <span className="font-bold text-slate-900">{seat.pressureWeight}kg</span>
                   </div>
                 </div>
               );
@@ -255,8 +266,8 @@ export default function OutsideKiosk() {
         </div>
 
         {/* Right 4 Columns: Active Chair ESP32 Telemetry */}
-        <div className="lg:col-span-4 bg-gradient-to-br from-slate-50 via-white to-blue-50/60 border border-slate-200/90 rounded-2xl p-3.5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+        <div className="lg:col-span-4 bg-slate-50 border border-slate-300 rounded-2xl p-3.5 flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
                 Chair {activeSeat.id} Telemetry
@@ -270,20 +281,20 @@ export default function OutsideKiosk() {
                 <>
                   <button
                     onClick={() => confirmArrivalAndSit(activeSeat.id)}
-                    className="btn-click-fx text-[10px] font-bold bg-blue-600 text-white px-2 py-0.5 rounded-lg cursor-pointer"
+                    className="btn-press text-[10px] font-bold bg-blue-700 text-white px-2 py-0.5 rounded cursor-pointer"
                   >
                     Sit
                   </button>
                   <button
                     onClick={() => cancelBooking(activeSeat.id)}
-                    className="btn-click-fx text-[10px] font-bold italic text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg cursor-pointer"
+                    className="btn-press text-[10px] font-bold italic text-rose-700 bg-white border border-rose-300 px-2 py-0.5 rounded cursor-pointer"
                   >
                     Cancel
                   </button>
                 </>
               )}
               <span
-                className={`flex items-center gap-1 text-xs font-bold italic px-3 py-0.5 rounded-full ${pillBadge(
+                className={`flex items-center gap-1 text-xs font-bold italic px-2.5 py-0.5 rounded-md ${pillBadge(
                   activeStatus
                 )}`}
               >
@@ -294,21 +305,21 @@ export default function OutsideKiosk() {
           </div>
 
           <div className="grid grid-cols-3 gap-2 my-2 text-center">
-            <div className="bg-white p-2 rounded-xl border border-slate-200/80">
+            <div className="bg-white p-2 rounded-xl border border-slate-300">
               <span className="text-[10px] italic text-slate-500 block">IR Sensor</span>
               <span className="text-sm font-bold text-blue-700">{activeSeat.irDistance} cm</span>
             </div>
-            <div className="bg-white p-2 rounded-xl border border-slate-200/80">
+            <div className="bg-white p-2 rounded-xl border border-slate-300">
               <span className="text-[10px] italic text-slate-500 block">Chair FSR</span>
-              <span className="text-sm font-bold text-indigo-700">{activeSeat.pressureWeight} kg</span>
+              <span className="text-sm font-bold text-slate-900">{activeSeat.pressureWeight} kg</span>
             </div>
             <div
               className={`p-2 rounded-xl border ${
-                activeLoud ? 'bg-red-50 border-red-300' : 'bg-white border-slate-200/80'
+                activeLoud ? 'bg-red-50 border-red-400' : 'bg-white border-slate-300'
               }`}
             >
               <span className="text-[10px] italic text-slate-500 block">Mic Noise</span>
-              <span className={`text-sm font-bold ${activeLoud ? 'text-red-600' : 'text-teal-700'}`}>
+              <span className={`text-sm font-bold ${activeLoud ? 'text-red-700' : 'text-emerald-700'}`}>
                 {activeSeat.noiseDb} dB
               </span>
             </div>

@@ -2,8 +2,8 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'SEATFI // Smart Library IoT Occupancy & 5-Min Pre-Booking System',
-  description: 'ESP32 + IR + FSR Real-Time Library Seat Telemetry & Express Hold',
+  title: 'SEATFI // Smart Library IoT System — Developed by Sephali Singh',
+  description: 'ESP32 + IR + FSR Real-Time Library Seat Telemetry & 5-Min Express Hold',
 };
 
 export default function RootLayout({ children }) {
@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
       <body
         suppressHydrationWarning
         style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}
-        className="h-full antialiased bg-slate-50 text-slate-900 selection:bg-blue-600 selection:text-white"
+        className="h-full antialiased bg-slate-100 text-slate-900 selection:bg-slate-900 selection:text-white"
       >
         {children}
       </body>
